@@ -6,6 +6,8 @@ Simple markdown to furigana rendering plugin for displaying Japanese text with [
 
 Based off of [markdown-it-ruby](https://github.com/lostandfound/markdown-it-ruby) syntax. All rendering is done post-processing when previewing, so your notes are not modified.
 
+**This fork adds only furigana visibility functionality, leaving the core functionality intact**
+
 ### Examples
 
 Markdown|Processed As|Displays As
@@ -20,6 +22,8 @@ Markdown|Processed As|Displays As
 ### Additional Info
 
 The plugin expects the first section to be Kanji or Kana, and furigana sections to be Hiragana or Katakana. If more than one furigana section, there must be as many as the number of characters in the first section. Sections of furigana can also be empty.
+
+It now has a visibility toggle on the sidebar as well as a keyboard shortcut Mod+Shift+F (Cmd+Shift+F on Mac or Ctrl+Shift+F on Windows)
 
 ### See Also
 

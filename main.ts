@@ -1,9 +1,18 @@
-import { Plugin, MarkdownPostProcessor, MarkdownPostProcessorContext } from 'obsidian'
+import { Plugin, MarkdownPostProcessor, MarkdownPostProcessorContext, setIcon } from 'obsidian'
 import { RangeSetBuilder } from "@codemirror/state"
 import { ViewPlugin, WidgetType, EditorView, ViewUpdate, Decoration, DecorationSet } from '@codemirror/view'
 
 // Regular Expression for {{kanji|kana|kana|...}} format
 const REGEXP = /{((?:[\u2E80-\uA4CF\uFF00-\uFFEF])+)((?:\\?\|[^ -\/{-~:-@\[-`]*)+)}/gm;
+
+// Settings interface
+interface FuriganaSettings {
+	furiganaVisible: boolean;
+}
+
+const DEFAULT_SETTINGS: FuriganaSettings = {
+	furiganaVisible: true
+}
 
 // Main Tags to search for Furigana Syntax
 const TAGS = 'p, h1, h2, h3, h4, h5, h6, ol, ul, table'
@@ -32,6 +41,17 @@ const convertFurigana = (element: Text): Node => {
 }
 
 export default class MarkdownFurigana extends Plugin {
+  settings: FuriganaSettings;
+  ribbonIconEl: HTMLElement | null = null;
+
+  async loadSettings() {
+    this.settings = Object.assign({}, DEFAULT_SETTINGS, await this.loadData());
+  }
+
+  async saveSettings() {
+    await this.saveData(this.settings);
+  }
+
   public postprocessor: MarkdownPostProcessor = (el: HTMLElement, ctx: MarkdownPostProcessorContext) => {
     const blockToReplace = el.querySelectorAll(TAGS)
     if (blockToReplace.length === 0) return
@@ -57,14 +77,85 @@ export default class MarkdownFurigana extends Plugin {
     })
   }
 
+  updateFuriganaVisibility() {
+    document.body.toggleClass('furigana-hidden', !this.settings.furiganaVisible);
+
+    // Update ribbon icon if it exists
+    if (this.ribbonIconEl) {
+      this.ribbonIconEl.setAttribute(
+        'aria-label',
+        this.settings.furiganaVisible ? 'Hide furigana' : 'Show furigana'
+      );
+      setIcon(
+        this.ribbonIconEl,
+        this.settings.furiganaVisible ? 'eye' : 'eye-off'
+      );
+    }
+  }
+
+  async toggleFuriganaVisibility() {
+    this.settings.furiganaVisible = !this.settings.furiganaVisible;
+    await this.saveSettings();
+    this.updateFuriganaVisibility();
+  }
+
   async onload() {
     console.log('loading Markdown Furigana plugin')
+
+    // Load settings
+    await this.loadSettings();
+
+    // Inject CSS for hiding furigana
+    const style = document.createElement('style');
+    style.id = 'furigana-toggle-styles';
+    style.textContent = `
+      body.furigana-hidden ruby rt,
+      body.furigana-hidden ruby.furi rt {
+        display: none;
+      }
+    `;
+    document.head.appendChild(style);
+
+    // Apply initial state
+    this.updateFuriganaVisibility();
+
+    // Add command for toggling furigana visibility
+    this.addCommand({
+      id: 'toggle-furigana-visibility',
+      name: 'Toggle furigana visibility',
+      hotkeys: [{
+        modifiers: ['Mod', 'Shift'],
+        key: 'f'
+      }],
+      callback: () => {
+        this.toggleFuriganaVisibility();
+      }
+    });
+
+    // Add ribbon icon for quick toggle access
+    this.ribbonIconEl = this.addRibbonIcon(
+      this.settings.furiganaVisible ? 'eye' : 'eye-off',
+      this.settings.furiganaVisible ? 'Hide furigana' : 'Show furigana',
+      (evt: MouseEvent) => {
+        this.toggleFuriganaVisibility();
+      }
+    );
+
     this.registerMarkdownPostProcessor(this.postprocessor)
     this.registerEditorExtension(viewPlugin)
   }
 
   onunload() {
     console.log('unloading Markdown Furigana plugin')
+
+    // Remove injected styles
+    const styleEl = document.getElementById('furigana-toggle-styles');
+    if (styleEl) {
+      styleEl.remove();
+    }
+
+    // Remove body class
+    document.body.removeClass('furigana-hidden');
   }
 }
 
